@@ -21,14 +21,6 @@ pub fn _getCMSTrate(deps: Deps, marketID: Addr) -> Option<(Uint256, Uint256)> {
     unimplemented!()
 }
 
-pub fn _sufficientMargin(deps: Deps, env: Env, marginOut: Uint256) -> bool {
-    if marginOut > freeMargin(deps, env) {
-        return true;
-    } else {
-        false
-    }
-}
-
 pub fn get_CMST_balance_of_user(deps: Deps, env: Env) -> StdResult<BalanceResponse> {
     // Create a QueryRequest to get the contract's balance for a specific token
     let contract_address_this = env.contract.address.to_string();
@@ -69,6 +61,14 @@ pub fn getPosition(deps: Deps, address: Addr) -> StdResult<PositionState> {
     }
 }
 
+pub fn Quote_asset_size(amount: Uint128, marketID: u128) -> Uint128 {
+    let price = get_synth_price(marketID);
+
+    let size = amount / price as Uint128;
+
+    size
+}
+
 pub fn modifyAccountMargin(amount: i128) {
     if (amount > 0) {
         unimplemented!()
@@ -81,7 +81,7 @@ pub fn get_asset_info(id: u128) -> Synth {
     unimplemented!()
 }
 
-pub fn get_synth_price(id: u128) -> Uint256 {
+pub fn get_synth_price(id: u128) -> Uint128 {
     unimplemented!()
 }
 

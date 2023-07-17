@@ -13,7 +13,6 @@ pub struct ConditionalOrder {
     pub sizeDelta: Uint128,
     pub margin: Uint128,
     pub limitPrice: Option<Uint128>,
-    pub taskID: u128,
     pub conditionalOrder: ConditionalOrderTypes,
     pub tradeType: TradeType,
 }
@@ -35,6 +34,7 @@ pub const CONDITIONALORDERS: Map<u128, ConditionalOrder> = Map::new("conditional
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct PositionState {
     pub taskID: u128,
+    pub tradeType: TradeType,
     pub lastFundingIndex: u128,
     pub margin: Uint128,
     pub lastPrice: Uint128,
