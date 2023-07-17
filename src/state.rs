@@ -51,5 +51,6 @@ pub struct Synth {
     pub asset: String,
     pub Lastprice: Uint128,
 }
+pub const ORDERS: Map<Addr, Vec<u128>> = Map::new("orders");
 
-pub const LIMITORDERS: Map<Addr, Vec<u128>> = Map::new("limitOrders");
+pub const EXECUTEORDER: Map<u128, bool> = Map::new("ExecutedOrders");

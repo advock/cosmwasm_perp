@@ -1,9 +1,8 @@
 use crate::contract;
 use crate::state::PositionState;
 use crate::state::Synth;
-use crate::state::LIMITORDERS;
-use crate::state::MARGIN;
-use crate::state::POSITION;
+use crate::state::ORDERS;
+use crate::state::{EXECUTEORDER, MARGIN, POSITION};
 use crate::ContractError;
 use cosmwasm_std::to_binary;
 use cosmwasm_std::BalanceResponse;
@@ -89,13 +88,24 @@ pub fn get_max_magrin_for_asset(id: u128) -> Uint128 {
     unimplemented!()
 }
 
-pub fn query_limit_orders(deps: Deps, address: Addr) -> StdResult<Vec<u128>> {
-    let res = LIMITORDERS.may_load(deps.storage, address)?;
+pub fn check_if_order_is_executed(deps: Deps, taskID: u128) -> StdResult<bool> {
+    let res = EXECUTEORDER.may_load(deps.storage, taskID)?;
 
     match res {
         Some(val) => Ok(val),
         None => Err(StdError::NotFound {
-            kind: format!("Unable to load orders with address: {}", address),
+            kind: format!("Unable to load orders with taskID: {}", taskID),
+        }),
+    }
+}
+
+pub fn query_TaskIDs(deps: Deps, address: Addr) -> StdResult<Vec<u128>> {
+    let res = ORDERS.may_load(deps.storage, address)?;
+
+    match res {
+        Some(val) => Ok(val),
+        None => Err(StdError::NotFound {
+            kind: format!("Unable to load orders with taskID: {}", address),
         }),
     }
 }

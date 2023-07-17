@@ -1,3 +1,6 @@
+use std::borrow::Borrow;
+use std::path::PrefixComponent;
+
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
@@ -13,8 +16,8 @@ use crate::state::{
 use crate::error::{self, ContractError};
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::query::{
-    getPosition, get_asset_info, get_max_magrin_for_asset, get_synth_price, query_limit_orders,
-    user_balance, Quote_asset_size,
+    check_if_order_is_executed, getPosition, get_asset_info, get_max_magrin_for_asset,
+    get_synth_price, query_TaskIDs, user_balance, Quote_asset_size,
 };
 use cw20::{Cw20ExecuteMsg, Cw20QueryMsg, Cw20ReceiveMsg};
 use cw20_base::{self};
@@ -112,9 +115,17 @@ pub fn TradeSynth(
                 if !order.limitPrice.is_none() {
                     let limit_price = order.limitPrice.unwrap();
                     if asset.Lastprice <= limit_price {
-                        _buyasset(_deps, _env, _info, order, total_trade_value);
+                        _buyasset(
+                            _deps,
+                            _env,
+                            _info.sender.clone(),
+                            order,
+                            total_trade_value,
+                            order.limitPrice.unwrap(),
+                        );
                     } else {
-                        // _orderBuyAsset(_deps, _env, order, _info.sender);
+
+                        // place order
                     }
                 } else {
                     unimplemented!()
@@ -122,7 +133,14 @@ pub fn TradeSynth(
             }
 
             ConditionalOrderTypes::Market => {
-                _buyasset(_deps, _env, _info, order, asset.Lastprice * order.margin);
+                let price = _buyasset(
+                    _deps,
+                    _env,
+                    _info.sender.clone(),
+                    order,
+                    asset.Lastprice * order.margin,
+                    asset.Lastprice,
+                );
             }
 
             ConditionalOrderTypes::Stop => {}
@@ -132,7 +150,14 @@ pub fn TradeSynth(
                 if !order.limitPrice.is_none() {
                     let limit_price = order.limitPrice.unwrap();
                     if asset.Lastprice <= limit_price {
-                        _buyasset(_deps, _env, _info, order, total_trade_value);
+                        _buyasset(
+                            _deps,
+                            _env,
+                            _info.sender.clone(),
+                            order,
+                            total_trade_value,
+                            order.limitPrice.unwrap(),
+                        );
                     } else {
                         // _orderBuyAsset(_deps, _env, order, _info.sender);
                     }
@@ -142,7 +167,14 @@ pub fn TradeSynth(
             }
 
             ConditionalOrderTypes::Market => {
-                _buyasset(_deps, _env, _info, order, asset.Lastprice * order.margin);
+                _buyasset(
+                    _deps,
+                    _env,
+                    _info.sender.clone(),
+                    order,
+                    asset.Lastprice * order.margin,
+                    asset.Lastprice,
+                );
             }
 
             ConditionalOrderTypes::Stop => {}
@@ -155,33 +187,31 @@ pub fn TradeSynth(
 pub fn _buyasset(
     deps: DepsMut,
     _env: Env,
-    info: MessageInfo,
+    user: Addr,
     order: ConditionalOrder,
-    amount: Uint128,
+    margin: Uint128,
+    price: Uint128,
 ) {
-    // allot the amount of asset to user and all liquidation level
+    let mut tasks = query_TaskIDs(deps.as_ref(), user).unwrap();
+
+    let taskID = tasks.last().unwrap() + 1;
+
+    let size = margin / price;
 
     let position = PositionState {
-        taskID: unimplemented!(),
+        taskID: taskID,
         tradeType: TradeType::Long,
         lastFundingIndex: unimplemented!(),
         margin: order.margin,
-        lastPrice: unimplemented!(),
-        size: unimplemented!(),
+        lastPrice: price,
+        size: size,
     };
-    POSITION.save(deps.storage, info.sender, &position);
+    POSITION.save(deps.storage, user, &position);
 }
 
-pub fn _orderBuyAsset(_deps: DepsMut, _env: Env, order: ConditionalOrder, address: Addr) {
-    let mut orders = query_limit_orders(_deps, address).unwrap();
-
-    orders.push(order.taskID);
-
-    LIMITORDERS.save(_deps.storage, address, &orders);
-}
-
-pub fn _sellasset(_env: Env, id: u128, amount: Uint128) {
-    unimplemented!()
+pub fn placeOrder(_deps: Deps, _env: Env, taskId: u128, address: Addr) {
+    let mut tasks = query_TaskIDs(_deps, address).unwrap();
+    tasks.push(taskId);
 }
 
 #[cfg(test)]
