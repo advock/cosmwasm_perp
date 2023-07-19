@@ -9,12 +9,11 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct ConditionalOrder {
     pub marketkey: u128,
-    pub marginDelta: Uint128,
-    pub sizeDelta: Uint128,
+    pub initial_margin: Uint128,
     pub margin: Uint128,
-    pub limitPrice: Option<Uint128>,
-    pub conditionalOrder: ConditionalOrderTypes,
-    pub tradeType: TradeType,
+    pub limit_Price: Option<Uint128>,
+    pub conditional_Order: ConditionalOrderTypes,
+    pub trade_type: TradeType,
 }
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub enum ConditionalOrderTypes {
@@ -37,7 +36,7 @@ pub struct PositionState {
     pub tradeType: TradeType,
     pub lastFundingIndex: u128,
     pub margin: Uint128,
-    pub lastPrice: Uint128,
+    pub buy_price: Uint128,
     pub size: Uint128,
 }
 
@@ -51,6 +50,19 @@ pub struct Synth {
     pub asset: String,
     pub Lastprice: Uint128,
 }
+
+pub const TASKID: Item<Vec<u128>> = Item::new("taskId's");
+
 pub const ORDERS: Map<Addr, Vec<u128>> = Map::new("orders");
 
 pub const EXECUTEORDER: Map<u128, bool> = Map::new("ExecutedOrders");
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct LimitOrder {
+    pub user: Addr,
+    pub margin: Uint128,
+    pub limitPrice: Uint128,
+    pub tradeType: TradeType,
+}
+
+pub const LIMITORDER: Map<u128, LimitOrder> = Map::new("limitorders");

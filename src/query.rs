@@ -1,7 +1,10 @@
 use crate::contract;
+use crate::state::LimitOrder;
 use crate::state::PositionState;
 use crate::state::Synth;
+use crate::state::LIMITORDER;
 use crate::state::ORDERS;
+use crate::state::TASKID;
 use crate::state::{EXECUTEORDER, MARGIN, POSITION};
 use crate::ContractError;
 use cosmwasm_std::to_binary;
@@ -36,7 +39,7 @@ pub fn get_CMST_balance_of_user(deps: Deps, env: Env) -> StdResult<BalanceRespon
 }
 
 pub fn user_balance(deps: Deps, address: Addr) -> StdResult<Uint128> {
-    let res = MARGIN.may_load(deps.storage, address)?;
+    let res = MARGIN.may_load(deps.storage, address.clone())?;
     match res {
         Some(val) => Ok(val),
         None => Err(StdError::NotFound {
@@ -51,7 +54,7 @@ pub fn user_balance(deps: Deps, address: Addr) -> StdResult<Uint128> {
 pub fn getPosition(deps: Deps, address: Addr) -> StdResult<PositionState> {
     //position = _getPerpMarket(deps, marketKey);
 
-    let res = POSITION.may_load(deps.storage, address)?;
+    let res = POSITION.may_load(deps.storage, address.clone())?;
     match res {
         Some(val) => Ok(val),
         None => Err(StdError::NotFound {
@@ -100,12 +103,34 @@ pub fn check_if_order_is_executed(deps: Deps, taskID: u128) -> StdResult<bool> {
 }
 
 pub fn query_TaskIDs(deps: Deps, address: Addr) -> StdResult<Vec<u128>> {
-    let res = ORDERS.may_load(deps.storage, address)?;
+    let res: Option<Vec<u128>> = TASKID.may_load(deps.storage)?;
 
     match res {
         Some(val) => Ok(val),
         None => Err(StdError::NotFound {
-            kind: format!("Unable to load orders with taskID: {}", address),
+            kind: format!("Unable to load orders with address: {}", address),
+        }),
+    }
+}
+
+pub fn query_executed_orders(deps: Deps, taskId: u128) -> StdResult<bool> {
+    let res = EXECUTEORDER.may_load(deps.storage, taskId)?;
+
+    match res {
+        Some(val) => Ok(val),
+        None => Err(StdError::NotFound {
+            kind: format!("Unable to load orders with taskID: {}", taskId),
+        }),
+    }
+}
+
+pub fn query_limit_order(deps: Deps, taskID: u128) -> StdResult<LimitOrder> {
+    let res = LIMITORDER.may_load(deps.storage, taskID)?;
+
+    match res {
+        Some(val) => Ok(val),
+        None => Err(StdError::NotFound {
+            kind: format!("Unable to load orders with taskID: {}", taskID),
         }),
     }
 }

@@ -9,8 +9,8 @@ use cosmwasm_std::{
 };
 // use cw2::set_contract_version;
 use crate::state::{
-    ConditionalOrder, ConditionalOrderTypes, PositionState, Synth, TradeType, LIMITORDERS, MARGIN,
-    POSITION,
+    ConditionalOrder, ConditionalOrderTypes, LimitOrder, PositionState, Synth, TradeType,
+    EXECUTEORDER, LIMITORDER, MARGIN, POSITION, TASKID,
 };
 
 use crate::error::{self, ContractError};
@@ -71,7 +71,7 @@ pub fn add_stablecoin(
         msg: msg,
         funds: vec![],
     };
-    MARGIN.save(_deps.storage, _info.sender, &amount)?;
+    MARGIN.save(_deps.storage, _info.sender.clone(), &amount)?;
 
     let response = Response::new()
         .add_message(transfer_msg)
@@ -93,9 +93,9 @@ pub fn TradeSynth(
     // allot syth to user
 
     let asset: Synth = get_asset_info(order.marketkey);
-    let userBalance = user_balance(_deps.as_ref(), _info.sender)?;
+    let userBalance = user_balance(_deps.as_ref(), _info.sender.clone())?;
 
-    if userBalance < order.marginDelta {
+    if userBalance < order.initial_margin {
         return unimplemented!();
     }
 
@@ -105,27 +105,35 @@ pub fn TradeSynth(
         return unimplemented!();
     }
 
-    let total_trade_value = order.margin * order.marginDelta;
+    let trade_value = order.margin * order.initial_margin;
 
-    let size = Quote_asset_size(total_trade_value, order.marketkey);
+    let size = Quote_asset_size(trade_value, order.marketkey);
 
-    match order.tradeType {
-        TradeType::Long => match order.conditionalOrder {
+    match order.trade_type {
+        TradeType::Long => match order.conditional_Order {
             ConditionalOrderTypes::Limit => {
-                if !order.limitPrice.is_none() {
-                    let limit_price = order.limitPrice.unwrap();
+                if !order.limit_Price.is_none() {
+                    let limit_price = order.clone().limit_Price.unwrap();
                     if asset.Lastprice <= limit_price {
                         _buyasset(
                             _deps,
                             _env,
                             _info.sender.clone(),
-                            order,
-                            total_trade_value,
-                            order.limitPrice.unwrap(),
+                            order.margin,
+                            trade_value,
+                            asset.Lastprice,
+                            size,
                         );
                     } else {
-
                         // place order
+                        let LimitOrder = LimitOrder {
+                            user: _info.sender,
+                            margin: order.margin,
+                            limitPrice: order.limit_Price.unwrap(),
+                            tradeType: TradeType::Long,
+                        };
+
+                        placeOrder(_deps, _env, LimitOrder);
                     }
                 } else {
                     unimplemented!()
@@ -137,26 +145,28 @@ pub fn TradeSynth(
                     _deps,
                     _env,
                     _info.sender.clone(),
-                    order,
-                    asset.Lastprice * order.margin,
+                    order.margin,
+                    trade_value,
                     asset.Lastprice,
+                    size,
                 );
             }
 
             ConditionalOrderTypes::Stop => {}
         },
-        TradeType::Short => match order.conditionalOrder {
+        TradeType::Short => match order.conditional_Order {
             ConditionalOrderTypes::Limit => {
-                if !order.limitPrice.is_none() {
-                    let limit_price = order.limitPrice.unwrap();
+                if !order.limit_Price.is_none() {
+                    let limit_price = order.limit_Price.unwrap();
                     if asset.Lastprice <= limit_price {
                         _buyasset(
                             _deps,
                             _env,
                             _info.sender.clone(),
-                            order,
-                            total_trade_value,
-                            order.limitPrice.unwrap(),
+                            order.margin,
+                            trade_value,
+                            order.limit_Price.unwrap(),
+                            size,
                         );
                     } else {
                         // _orderBuyAsset(_deps, _env, order, _info.sender);
@@ -171,9 +181,10 @@ pub fn TradeSynth(
                     _deps,
                     _env,
                     _info.sender.clone(),
-                    order,
-                    asset.Lastprice * order.margin,
+                    order.margin,
+                    asset.Lastprice * order.initial_margin,
                     asset.Lastprice,
+                    size,
                 );
             }
 
@@ -188,30 +199,36 @@ pub fn _buyasset(
     deps: DepsMut,
     _env: Env,
     user: Addr,
-    order: ConditionalOrder,
     margin: Uint128,
+    trade_value: Uint128,
     price: Uint128,
+    size: Uint128,
 ) {
     let mut tasks = query_TaskIDs(deps.as_ref(), user).unwrap();
-
     let taskID = tasks.last().unwrap() + 1;
 
-    let size = margin / price;
+    EXECUTEORDER.save(deps.storage, taskID, &true);
 
     let position = PositionState {
         taskID: taskID,
         tradeType: TradeType::Long,
         lastFundingIndex: unimplemented!(),
-        margin: order.margin,
-        lastPrice: price,
+        margin: margin,
+        buy_price: price,
         size: size,
     };
     POSITION.save(deps.storage, user, &position);
 }
 
-pub fn placeOrder(_deps: Deps, _env: Env, taskId: u128, address: Addr) {
-    let mut tasks = query_TaskIDs(_deps, address).unwrap();
-    tasks.push(taskId);
+pub fn placeOrder(_deps: DepsMut, _env: Env, LimitOrder: LimitOrder) {
+    let mut tasks = query_TaskIDs(_deps.as_ref(), LimitOrder.user.clone()).unwrap();
+    let taskID = tasks.last().unwrap() + 1;
+    tasks.push(taskID);
+    TASKID.save(_deps.storage, &tasks);
+
+    EXECUTEORDER.save(_deps.storage, taskID, &false);
+
+    LIMITORDER.save(_deps.storage, taskID, &LimitOrder);
 }
 
 #[cfg(test)]
