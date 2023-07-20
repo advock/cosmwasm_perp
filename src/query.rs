@@ -63,10 +63,16 @@ pub fn getPosition(deps: Deps, address: Addr) -> StdResult<PositionState> {
     }
 }
 
-pub fn Quote_asset_size(amount: Uint128, marketID: u128) -> Uint128 {
-    let price = get_synth_price(marketID);
+pub fn Quote_asset_size_at_market_price(amount: Uint128, synth: Synth) -> Uint128 {
+    let price = synth.Lastprice;
 
-    let size = amount / price as Uint128;
+    let size = amount / price;
+
+    size
+}
+
+pub fn Quote_asset_size_at_limit_price(amount: Uint128, limit_price: Uint128) -> Uint128 {
+    let size = amount / limit_price;
 
     size
 }
